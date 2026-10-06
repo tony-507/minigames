@@ -13,7 +13,11 @@ import math
 import sys
 from typing import Dict, List, Set, Tuple, Union
 
+from common.styles import RED, RESET
+
 logger = logging.getLogger(__name__)
+
+UNKNOWN_CHAR = '?'
 
 def configure_logging(level: int) -> None:
     handler = logging.StreamHandler(sys.stdout)
@@ -40,6 +44,7 @@ class SudokuInput:
 
 class Sudoku:
     m: List[List[Union[List[int], int]]]
+    last_updated: Tuple[int, int]
     jobs: List[SudokuInput]
     size: int
 
@@ -48,6 +53,7 @@ class Sudoku:
         self.m = []
         self.jobs = []
         self.size = n
+        self.last_updated = (-1, -1)
         for _ in range(n * n):
             newRow: List[Union[List[int], int]] = []
             for _ in range(n * n):
@@ -99,6 +105,7 @@ class Sudoku:
                 return
 
         self.m[row][col] = val
+        self.last_updated = (row, col)
 
         self.display()
 
@@ -259,17 +266,20 @@ class Sudoku:
         """Show the Sudoku"""
         s = ""
         n = self.size * self.size
-        for row in self.m:
-            s += "-" * n * 2 + "\n"
-            for v in row:
+        for row_idx, row in enumerate(self.m):
+            s += "-" * n * 6 + "\n"
+            for idx, v in enumerate(row):
                 if isinstance(v, int):
-                    s += f"|{v}"
+                    if (row_idx, idx) == self.last_updated:
+                        s += f"|{RED}{v:^5}{RESET}"
+                    else:
+                        s += f"|{v:^5}"
                 else:
-                    s += "|?"
+                    s += f"|{UNKNOWN_CHAR:^5}"
             s += "|\n"
-        s += "-" * n * 2 + "\n"
+        s += "-" * n * 6 + "\n"
         print(s)
-                
+
 
 def deduce(x: List[Union[List[int], int]], id: str) -> Set[Tuple[int, int, DeductionReason]]:
     """

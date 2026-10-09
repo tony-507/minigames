@@ -47,12 +47,14 @@ class Sudoku:
     last_updated: Tuple[int, int]
     jobs: List[SudokuInput]
     size: int
+    interactive: bool
 
-    def __init__(self, n: int) -> None:
+    def __init__(self, n: int, interactive: bool = False) -> None:
         """Build a board with all possible values"""
         self.m = []
         self.jobs = []
         self.size = n
+        self.interactive = interactive
         self.last_updated = (-1, -1)
         for _ in range(n * n):
             newRow: List[Union[List[int], int]] = []
@@ -109,7 +111,8 @@ class Sudoku:
 
         self.display()
 
-        input("$>")
+        if self.interactive:
+            input("$>")
 
         # Elimination phase
         self.eliminate_phase(row, col, val)
@@ -385,7 +388,7 @@ def solve(s: List[List[int]]) -> Sudoku:
         if len(row) != n:
             raise Exception(f"Invalid row size {len(row)} != {n}")
 
-    sudoku = Sudoku(int(math.sqrt(n)))
+    sudoku = Sudoku(int(math.sqrt(n)), True)
 
     for i, row in enumerate(s):
         for j, val in enumerate(row):

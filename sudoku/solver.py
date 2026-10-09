@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 UNKNOWN_CHAR = '?'
 
+type Cell = Union[List[int], int]
+type Row = List[Cell]
+
 def configure_logging(level: int) -> None:
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(logging.Formatter('%(message)s'))
@@ -43,7 +46,7 @@ class SudokuInput:
     reason: DeductionReason = field(compare=False)
 
 class Sudoku:
-    m: List[List[Union[List[int], int]]]
+    m: List[Row]
     last_updated: Tuple[int, int]
     jobs: List[SudokuInput]
     size: int
@@ -57,7 +60,7 @@ class Sudoku:
         self.interactive = interactive
         self.last_updated = (-1, -1)
         for _ in range(n * n):
-            newRow: List[Union[List[int], int]] = []
+            newRow: Row = []
             for _ in range(n * n):
                 newRow.append(list(range(1, n * n + 1)))
             self.m.append(newRow)
@@ -247,7 +250,7 @@ class Sudoku:
         for (idx, val, reason) in res:
             self.add_number(idx, col, val, reason)
 
-    def group_deduce(self, g_row: int, g_col: int, group_vals: List[Union[List[int], int]]) -> None:
+    def group_deduce(self, g_row: int, g_col: int, group_vals: List[Cell]) -> None:
         res = deduce(group_vals, f"group ({g_row}, {g_col})")
         for (i, val, reason) in res:
             mapped_row = i // self.size
@@ -284,7 +287,7 @@ class Sudoku:
         print(s)
 
 
-def deduce(x: List[Union[List[int], int]], id: str) -> Set[Tuple[int, int, DeductionReason]]:
+def deduce(x: List[Cell], id: str) -> Set[Tuple[int, int, DeductionReason]]:
     """
     Scan for possible fills. Return an entry to fill.
 
@@ -314,7 +317,7 @@ def deduce(x: List[Union[List[int], int]], id: str) -> Set[Tuple[int, int, Deduc
 
     return res
 
-def eliminate_pairs(x: List[Union[List[int], int]], id: str) -> List[Tuple[int, List[int]]]:
+def eliminate_pairs(x: List[Cell], id: str) -> List[Tuple[int, List[int]]]:
     """
     Try to eliminate possibilities based on hidden pairs.
 

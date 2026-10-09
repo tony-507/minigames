@@ -134,70 +134,52 @@ class Sudoku:
         """
         Eliminate impossible values from the entire board.
         """
-        res: List[Tuple[int, int, int, EliminationReason]] = []
-        res.extend(self.eliminate_row(row, col, val))
-        res.extend(self.eliminate_col(row, col, val))
-        res.extend(self.eliminate_group(row, col, val))
+        self.eliminate_row(row, col, val)
+        self.eliminate_col(row, col, val)
+        self.eliminate_group(row, col, val)
+        self.eliminate_masked(row, col)
 
-        for (r, c, v, reason) in res:
-            logger.debug(f"Eliminating ({r}, {c}) != {v} due to {reason}")
-            self.remove(r, c, v)
-
-        for (r, c, v, reason) in self.eliminate_masked(row, col):
-            logger.debug(f"Eliminating ({r}, {c}) != {v} due to {reason}")
-            self.remove(r, c, v)
-
-    def eliminate_row(self, row: int, col: int, val: int) -> List[Tuple[int, int, int, EliminationReason]]:
+    def eliminate_row(self, row: int, col: int, val: int) -> None:
         """Check and eliminate the value from the row."""
         n = self.size * self.size
-        res: List[Tuple[int, int, int, EliminationReason]] = []
         for i in range(n):
             if i == col:
                 continue
-            res.append((row, i, val, EliminationReason.DIRECT_SCANNING))
+            self.remove(row, i, val, EliminationReason.DIRECT_SCANNING)
 
         for (idx, vals) in eliminate_pairs(self.m[row], f"row {row}"):
             for val in vals:
-                res.append((row, idx, val, EliminationReason.DIRECT_SCANNING))
+                self.remove(row, idx, val, EliminationReason.DIRECT_SCANNING)
 
-        return res
-
-    def eliminate_col(self, row: int, col: int, val: int) -> List[Tuple[int, int, int, EliminationReason]]:
+    def eliminate_col(self, row: int, col: int, val: int) -> None:
         """Check and eliminate the value from the column."""
         n = self.size * self.size
-        res: List[Tuple[int, int, int, EliminationReason]] = []
         for i in range(n):
             if i == row:
                 continue
-            res.append((i, col, val, EliminationReason.DIRECT_SCANNING))
+            self.remove(i, col, val, EliminationReason.DIRECT_SCANNING)
 
         for (idx, vals) in eliminate_pairs([ r[col] for r in self.m ], f"col {col}"):
             for val in vals:
-                res.append((idx, col, val, EliminationReason.DIRECT_SCANNING))
+                self.remove(idx, col, val, EliminationReason.DIRECT_SCANNING)
 
-        return res
-
-    def eliminate_group(self, row: int, col: int, val: int) -> List[Tuple[int, int, int, EliminationReason]]:
+    def eliminate_group(self, row: int, col: int, val: int) -> None:
         """Check and eliminate the value from the group."""
         g_row = row // self.size
         g_col = col // self.size
 
-        res: List[Tuple[int, int, int, EliminationReason]] = []
-
         for i in range(self.size):
             for j in range(self.size):
-                res.append((g_row * self.size + i, g_col * self.size + j, val, EliminationReason.DIRECT_SCANNING))
+                self.remove(g_row * self.size + i, g_col * self.size + j, val, EliminationReason.DIRECT_SCANNING)
 
         group_vals = [self.m[g_row * self.size + i][g_col * self.size + j] for i in range(self.size) for j in range(self.size)]
         for (idx, vals) in eliminate_pairs(group_vals, f"group ({g_row}, {g_col})"):
             mapped_row = idx // self.size
             mapped_col = idx % self.size
             for val in vals:
-                res.append((g_row * self.size + mapped_row, g_col * self.size + mapped_col, val, EliminationReason.DIRECT_SCANNING))
+                self.remove(g_row * self.size + mapped_row, g_col * self.size + mapped_col, val, EliminationReason.DIRECT_SCANNING)
 
-        return res
-
-    def eliminate_masked(self, row: int, col: int) -> List[Tuple[int, int, int, EliminationReason]]:
+    def eliminate_masked(self, row: int, col: int) -> None:
         """
         In a group, if a value is only possible on a row/column,
         eliminate the value from the remaining rows/columns in the group.
@@ -205,8 +187,6 @@ class Sudoku:
         n = self.size * self.size
         g_row = row // self.size
         g_col = col // self.size
-
-        res: List[Tuple[int, int, int, EliminationReason]] = []
 
         row_union: List[Set[int]] = [set() for _ in range(self.size)]
         col_union: List[Set[int]] = [set() for _ in range(self.size)]
@@ -227,16 +207,14 @@ class Sudoku:
             for i in range(n):
                 g_idx = i // self.size
                 if g_idx != g_col:
-                    res.append((actual_row, i, val, EliminationReason.MASKED_SCANNING))
+                    self.remove(actual_row, i, val, EliminationReason.MASKED_SCANNING)
 
         for (idx, val) in search_unique_val(col_union):
             actual_col = g_col * self.size + idx
             for i in range(n):
                 g_idx = i // self.size
                 if g_idx != g_row:
-                    res.append((i, actual_col, val, EliminationReason.MASKED_SCANNING))
-
-        return res
+                    self.remove(i, actual_col, val, EliminationReason.MASKED_SCANNING)
 
     def row_deduce(self, row: int) -> None:
         """Check a specific row for possible fills"""
@@ -257,7 +235,7 @@ class Sudoku:
             mapped_col = i % self.size
             self.add_number(g_row * self.size + mapped_row, g_col * self.size + mapped_col, val, reason)
 
-    def remove(self, row: int, col: int, val: int) -> None:
+    def remove(self, row: int, col: int, val: int, reason: EliminationReason) -> None:
         """Remove the possibility of (row, col) to be val"""
         cell = self.m[row][col]
         if isinstance(cell, int):
@@ -266,6 +244,7 @@ class Sudoku:
         if val not in cell:
             return
 
+        logger.debug("Removing value %d from cell (%d, %d) due to reason: %s", val, row, col, reason)
         cell.remove(val)
 
     def display(self) -> None:

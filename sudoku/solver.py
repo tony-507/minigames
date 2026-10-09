@@ -150,7 +150,7 @@ class Sudoku:
                 continue
             res.append((row, i, val, EliminationReason.DIRECT_SCANNING))
 
-        for (idx, vals) in eliminate(self.m[row], f"row {row}"):
+        for (idx, vals) in eliminate_pairs(self.m[row], f"row {row}"):
             for val in vals:
                 res.append((row, idx, val, EliminationReason.DIRECT_SCANNING))
 
@@ -165,7 +165,7 @@ class Sudoku:
                 continue
             res.append((i, col, val, EliminationReason.DIRECT_SCANNING))
 
-        for (idx, vals) in eliminate([ r[col] for r in self.m ], f"col {col}"):
+        for (idx, vals) in eliminate_pairs([ r[col] for r in self.m ], f"col {col}"):
             for val in vals:
                 res.append((idx, col, val, EliminationReason.DIRECT_SCANNING))
 
@@ -183,7 +183,7 @@ class Sudoku:
                 res.append((g_row * self.size + i, g_col * self.size + j, val, EliminationReason.DIRECT_SCANNING))
 
         group_vals = [self.m[g_row * self.size + i][g_col * self.size + j] for i in range(self.size) for j in range(self.size)]
-        for (idx, vals) in eliminate(group_vals, f"group ({g_row}, {g_col})"):
+        for (idx, vals) in eliminate_pairs(group_vals, f"group ({g_row}, {g_col})"):
             mapped_row = idx // self.size
             mapped_col = idx % self.size
             for val in vals:
@@ -311,27 +311,46 @@ def deduce(x: List[Union[List[int], int]], id: str) -> Set[Tuple[int, int, Deduc
 
     return res
 
-def eliminate(x: List[Union[List[int], int]], id: str) -> List[Tuple[int, List[int]]]:
+def eliminate_pairs(x: List[Union[List[int], int]], id: str) -> List[Tuple[int, List[int]]]:
     """
-    Return entries to eliminate.
+    Try to eliminate possibilities based on hidden pairs.
 
-    1. If a possibility list appears exactly the same number of times as its length, those values can be eliminated from other entries.
+    If a list of N numbers appears exactly N times on the same N positions, those values can be eliminated from other entries.
     """
-    possibilities_count: Dict[Tuple[int, ...], int] = {}
-    for val in x:
+    possibilities: List[List[int]] = []
+    for _ in range(len(x)):
+        possibilities.append([])
+
+    for idx, val in enumerate(x):
         if not isinstance(val, int):
-            val_tuple = tuple(val)
-            if val_tuple not in possibilities_count:
-                possibilities_count[val_tuple] = 0
-            possibilities_count[val_tuple] += 1
-    # Find entries to eliminate
-    to_eliminate: List[Tuple[int, List[int]]] = []
-    for val_tuple, count in possibilities_count.items():
-        if count == len(val_tuple):
-            for i, val in enumerate(x):
-                if not isinstance(val, int) and tuple(val) != val_tuple:
-                    to_eliminate.append((i, list(val_tuple)))
-    return to_eliminate
+            for v in val:
+                possibilities[v - 1].append(idx)
+
+    list_counts: Dict[str, int] = {}
+    for l in possibilities:
+        key = ",".join(map(str, l))
+        if key not in list_counts:
+            list_counts[key] = 0
+        list_counts[key] += 1
+
+    rv: List[Tuple[int, List[int]]] = []
+    for key, count in list_counts.items():
+        l = list(map(int, key.split(","))) if key else []
+        if count == len(l):
+            values = [i + 1 for i, p in enumerate(possibilities) if p == l]
+            for i in range(len(x)):
+                orig_vals = x[i]
+                if not isinstance(orig_vals, int):
+                    to_eliminate: List[int] = []
+                    if i in l:
+                        to_eliminate = [v for v in orig_vals if v not in values]
+                    else:
+                        to_eliminate = [v for v in orig_vals if v in values]
+
+                    if to_eliminate:
+                        rv.append((i, to_eliminate))
+
+    return rv
 
 def search_unique_val(x: List[Set[int]]) -> List[Tuple[int, int]]:
     """

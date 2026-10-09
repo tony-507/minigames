@@ -1,6 +1,26 @@
 from typing import List
 
-from .solver import EliminationReason, deduce, search_unique_val, DeductionReason, Sudoku
+from .solver import *
+
+def test_eliminate_naked_pairs() -> None:
+    """
+    [1, 2] occurs at position 0 and 2, forming a naked pair.
+
+    Therefore, the values [1, 2] can be eliminated from other positions in the list.
+    """
+    x: List[List[int] | int] = [[1, 2], [1, 2, 3, 4], [1, 2], [1, 2, 3, 4]]
+    res = eliminate_pairs(x, "test")
+    assert res == [(1, [1, 2]), (3, [1, 2])], f"Unexpected result: {res}"
+
+def test_eliminate_hidden_pairs() -> None:
+    """
+    [2, 4] forms a hidden pair at positions 3 and 4.
+
+    Therefore, the values [2, 4] can be eliminated from other positions in the list.
+    """
+    x: List[List[int] | int] = [[5, 6], [3, 5, 6], 1, [2, 4, 5, 6], [2, 3, 4, 6, 7], [3, 5, 7], 9, [5, 7], 8]
+    res = eliminate_pairs(x, "test")
+    assert res == [(3, [5, 6]), (4, [3, 6, 7])], f"Unexpected result: {res}"
 
 def test_entry_with_single_possibility() -> None:
     """Test deduce function with an entry that has only one possible value"""
@@ -61,10 +81,10 @@ def test_sudoku_eliminate_combined_row() -> None:
         [[1, 2, 3, 4], [1, 2, 3, 4], [1, 2, 3, 4], [1, 2, 3, 4]],
     ]
 
-    res = sudoku.eliminate_combined(0, 0)
+    res = sudoku.eliminate_masked(0, 0)
 
     print(res)
 
     assert len(res) == 2, f"Unexpected result length: {len(res)}"
-    assert (1, 2, 3,  EliminationReason.COMBINED_SCANNING) in res
-    assert (1, 3, 3, EliminationReason.COMBINED_SCANNING) in res
+    assert (1, 2, 3,  EliminationReason.MASKED_SCANNING) in res
+    assert (1, 3, 3, EliminationReason.MASKED_SCANNING) in res

@@ -30,13 +30,13 @@ def configure_logging(level: int) -> None:
     logger.setLevel(level)
 
 class DeductionReason(Enum):
-    USER_INPUT = 1
-    DIRECT_SCANNING = 2
-    UNIQUE_VALUE = 3
+    USER_INPUT    = 1
+    NAKED_SINGLE  = 2
+    HIDDEN_SINGLE = 3
 
 class EliminationReason(Enum):
-    DIRECT_SCANNING = 1
-    MASKED_SCANNING = 2
+    PEER_ELIMINATION    = 1
+    POINTING_CANDIDATES = 2
 
 @dataclass
 class SudokuInput:
@@ -127,8 +127,8 @@ class Sudoku:
         for i in range(n):
             self.row_deduce(i)
             self.col_deduce(i)
-        group_vals = [self.m[g_row * self.size + i][g_col * self.size + j] for i in range(self.size) for j in range(self.size)]
-        self.group_deduce(g_row, g_col, group_vals)
+        box_vals = [self.m[g_row * self.size + i][g_col * self.size + j] for i in range(self.size) for j in range(self.size)]
+        self.box_deduce(g_row, g_col, box_vals)
 
     def eliminate_phase(self, row: int, col: int, val: int) -> None:
         """
@@ -136,7 +136,7 @@ class Sudoku:
         """
         self.eliminate_row(row, col, val)
         self.eliminate_col(row, col, val)
-        self.eliminate_group(row, col, val)
+        self.eliminate_box(row, col, val)
         self.eliminate_masked(row, col)
 
     def eliminate_row(self, row: int, col: int, val: int) -> None:
@@ -145,11 +145,11 @@ class Sudoku:
         for i in range(n):
             if i == col:
                 continue
-            self.remove(row, i, val, EliminationReason.DIRECT_SCANNING)
+            self.remove(row, i, val, EliminationReason.PEER_ELIMINATION)
 
-        for (idx, vals) in eliminate_pairs(self.m[row], f"row {row}"):
+        for (idx, vals) in eliminate_subsets(self.m[row], f"row {row}"):
             for val in vals:
-                self.remove(row, idx, val, EliminationReason.DIRECT_SCANNING)
+                self.remove(row, idx, val, EliminationReason.PEER_ELIMINATION)
 
     def eliminate_col(self, row: int, col: int, val: int) -> None:
         """Check and eliminate the value from the column."""
@@ -157,32 +157,32 @@ class Sudoku:
         for i in range(n):
             if i == row:
                 continue
-            self.remove(i, col, val, EliminationReason.DIRECT_SCANNING)
+            self.remove(i, col, val, EliminationReason.PEER_ELIMINATION)
 
-        for (idx, vals) in eliminate_pairs([ r[col] for r in self.m ], f"col {col}"):
+        for (idx, vals) in eliminate_subsets([ r[col] for r in self.m ], f"col {col}"):
             for val in vals:
-                self.remove(idx, col, val, EliminationReason.DIRECT_SCANNING)
+                self.remove(idx, col, val, EliminationReason.PEER_ELIMINATION)
 
-    def eliminate_group(self, row: int, col: int, val: int) -> None:
-        """Check and eliminate the value from the group."""
+    def eliminate_box(self, row: int, col: int, val: int) -> None:
+        """Check and eliminate the value from the box."""
         g_row = row // self.size
         g_col = col // self.size
 
         for i in range(self.size):
             for j in range(self.size):
-                self.remove(g_row * self.size + i, g_col * self.size + j, val, EliminationReason.DIRECT_SCANNING)
+                self.remove(g_row * self.size + i, g_col * self.size + j, val, EliminationReason.PEER_ELIMINATION)
 
-        group_vals = [self.m[g_row * self.size + i][g_col * self.size + j] for i in range(self.size) for j in range(self.size)]
-        for (idx, vals) in eliminate_pairs(group_vals, f"group ({g_row}, {g_col})"):
+        box_vals = [self.m[g_row * self.size + i][g_col * self.size + j] for i in range(self.size) for j in range(self.size)]
+        for (idx, vals) in eliminate_subsets(box_vals, f"box ({g_row}, {g_col})"):
             mapped_row = idx // self.size
             mapped_col = idx % self.size
             for val in vals:
-                self.remove(g_row * self.size + mapped_row, g_col * self.size + mapped_col, val, EliminationReason.DIRECT_SCANNING)
+                self.remove(g_row * self.size + mapped_row, g_col * self.size + mapped_col, val, EliminationReason.PEER_ELIMINATION)
 
     def eliminate_masked(self, row: int, col: int) -> None:
         """
-        In a group, if a value is only possible on a row/column,
-        eliminate the value from the remaining rows/columns in the group.
+        In a box, if a value is only possible on a row/column,
+        eliminate the value from the remaining rows/columns in the box.
         """
         n = self.size * self.size
         g_row = row // self.size
@@ -207,14 +207,14 @@ class Sudoku:
             for i in range(n):
                 g_idx = i // self.size
                 if g_idx != g_col:
-                    self.remove(actual_row, i, val, EliminationReason.MASKED_SCANNING)
+                    self.remove(actual_row, i, val, EliminationReason.POINTING_CANDIDATES)
 
         for (idx, val) in search_unique_val(col_union):
             actual_col = g_col * self.size + idx
             for i in range(n):
                 g_idx = i // self.size
                 if g_idx != g_row:
-                    self.remove(i, actual_col, val, EliminationReason.MASKED_SCANNING)
+                    self.remove(i, actual_col, val, EliminationReason.POINTING_CANDIDATES)
 
     def row_deduce(self, row: int) -> None:
         """Check a specific row for possible fills"""
@@ -228,8 +228,8 @@ class Sudoku:
         for (idx, val, reason) in res:
             self.add_number(idx, col, val, reason)
 
-    def group_deduce(self, g_row: int, g_col: int, group_vals: List[Cell]) -> None:
-        res = deduce(group_vals, f"group ({g_row}, {g_col})")
+    def box_deduce(self, g_row: int, g_col: int, box_vals: List[Cell]) -> None:
+        res = deduce(box_vals, f"box ({g_row}, {g_col})")
         for (i, val, reason) in res:
             mapped_row = i // self.size
             mapped_col = i % self.size
@@ -279,7 +279,7 @@ def deduce(x: List[Cell], id: str) -> Set[Tuple[int, int, DeductionReason]]:
     for i, val in enumerate(x):
         if not isinstance(val, int):
             if len(val) == 1:
-                res.add((i, val[0], DeductionReason.DIRECT_SCANNING))
+                res.add((i, val[0], DeductionReason.NAKED_SINGLE))
             for v in val:
                 if v not in unique_entries:
                     unique_entries[v] = i
@@ -292,15 +292,13 @@ def deduce(x: List[Cell], id: str) -> Set[Tuple[int, int, DeductionReason]]:
 
     for val, pos in unique_entries.items():
         if pos != -1:
-            res.add((pos, val, DeductionReason.UNIQUE_VALUE))
+            res.add((pos, val, DeductionReason.HIDDEN_SINGLE))
 
     return res
 
-def eliminate_pairs(x: List[Cell], id: str) -> List[Tuple[int, List[int]]]:
+def eliminate_subsets(x: List[Cell], id: str) -> List[Tuple[int, List[int]]]:
     """
-    Try to eliminate possibilities based on hidden pairs.
-
-    If a list of N numbers appears exactly N times on the same N positions, those values can be eliminated from other entries.
+    See subset elimination in README.
     """
     possibilities: List[List[int]] = []
     for _ in range(len(x)):

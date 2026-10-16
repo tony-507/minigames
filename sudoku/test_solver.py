@@ -15,15 +15,15 @@ PAIR_ELIMINATION_TEST_CASES: List[Tuple[List[Cell], List[Tuple[int, List[int]]]]
 ]
 
 @pytest.mark.parametrize("testcase", PAIR_ELIMINATION_TEST_CASES)
-def test_eliminate_pairs(testcase: Tuple[List[Cell], List[Tuple[int, List[int]]]]) -> None:
+def test_eliminate_subsets(testcase: Tuple[List[Cell], List[Tuple[int, List[int]]]]) -> None:
     x, expected = testcase
-    res = eliminate_pairs(x, "test")
+    res = eliminate_subsets(x, "test")
     assert res == expected, f"Unexpected result: {res}"
 
 DEDUCTION_TEST_CASES: List[Tuple[List[Cell], int, int, DeductionReason]] = [
-    ([[1, 2, 3], [3], [1, 2]], 1, 3, DeductionReason.DIRECT_SCANNING),
-    ([[1, 2], [1, 3], [1, 3]], 0, 2, DeductionReason.UNIQUE_VALUE),
-    ([[1], [1, 2, 3], [2, 3]], 0, 1, DeductionReason.DIRECT_SCANNING)
+    ([[1, 2, 3], [3], [1, 2]], 1, 3, DeductionReason.NAKED_SINGLE),
+    ([[1, 2], [1, 3], [1, 3]], 0, 2, DeductionReason.HIDDEN_SINGLE),
+    ([[1], [1, 2, 3], [2, 3]], 0, 1, DeductionReason.NAKED_SINGLE)
 ]
 
 @pytest.mark.parametrize("testcase", DEDUCTION_TEST_CASES)
@@ -52,17 +52,17 @@ def test_add_number() -> None:
 def test_remove_possibility() -> None:
     """Possibility can be removed from a cell"""
     sudoku = Sudoku(2)
-    sudoku.remove(0, 0, 1, EliminationReason.DIRECT_SCANNING)  # Example of removing a value from the Sudoku
+    sudoku.remove(0, 0, 1, EliminationReason.PEER_ELIMINATION)  # Example of removing a value from the Sudoku
 
     cell = sudoku.m[0][0]
     assert isinstance(cell, list), f"Unexpected cell type: {type(cell)}"
     assert 1 not in cell
 
-def test_hidden_pairs_in_same_group() -> None:
+def test_hidden_pairs_in_same_box() -> None:
     """
-    After adding the number 1 to the cell (0, 0), in the first group,
+    After adding the number 1 to the cell (0, 0), in the first box,
     3 is only possible on the second row,
-    so it should be eliminated from cells of other groups in the same row.
+    so it should be eliminated from cells of other boxes in the same row.
     """
     sudoku = Sudoku(2)
     sudoku.m = [
@@ -77,10 +77,10 @@ def test_hidden_pairs_in_same_group() -> None:
     assert sudoku.m[1][2] == [1, 2]
     assert sudoku.m[1][3] == [1, 2, 4]
 
-def test_hidden_pairs_in_diff_group() -> None:
+def test_hidden_pairs_in_diff_box() -> None:
     """
-    After adding the number 4 to the cell (1, 2), in the first group,
-    [2, 3] must be on the second row, so it should be eliminated from other cells in the same group.
+    After adding the number 4 to the cell (1, 2), in the first box,
+    [2, 3] must be on the second row, so it should be eliminated from other cells in the same box.
     """
     sudoku = Sudoku(2)
     sudoku.m = [

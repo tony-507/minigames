@@ -14,11 +14,7 @@ From the repository root, run a puzzle with:
 python -m sudoku.solver solve '[[1,0,0,4],[0,4,1,0],[0,1,4,0],[4,0,0,1]]'
 ```
 
-The program displays the board as values are placed; `?` represents an unresolved cell. The current command-line and `solve()` entry points are interactive: press Enter at the `$>` prompt after each placement to continue. Use `-v` before `solve` to enable detailed elimination logging:
-
-```sh
-python -m sudoku.solver -v solve '[[1,0,0,4],[0,4,1,0],[0,1,4,0],[4,0,0,1]]'
-```
+The program displays the board as values are placed; `?` represents an unresolved cell.
 
 ## Strategies
 

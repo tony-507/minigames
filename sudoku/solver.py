@@ -78,6 +78,7 @@ class Sudoku:
             except Exception as e:
                 logger.error(f"Error processing job '({job.row}, {job.col}) = {job.val}': {e}")
                 break
+        self.last_updated = (-1, -1)
 
     def add_number(self, row: int, col: int, val: int, reason: DeductionReason) -> None:
         """Add a number to the Sudoku board and update possibilities."""
@@ -112,9 +113,8 @@ class Sudoku:
         self.m[row][col] = val
         self.last_updated = (row, col)
 
-        self.display()
-
         if self.interactive:
+            self.display()
             input("$>")
 
         # Elimination phase
@@ -368,7 +368,7 @@ def solve(s: List[List[int]]) -> Sudoku:
         if len(row) != n:
             raise Exception(f"Invalid row size {len(row)} != {n}")
 
-    sudoku = Sudoku(int(math.sqrt(n)), True)
+    sudoku = Sudoku(int(math.sqrt(n)), interactive=args.interactive)
 
     for i, row in enumerate(s):
         for j, val in enumerate(row):
@@ -387,6 +387,7 @@ if __name__ == '__main__':
 
     solver_parser = subparsers.add_parser('solve', help='Solve a Sudoku puzzle')
     solver_parser.add_argument('sudoku', help='2-D array representing the Sudoku in (row, col) format. Empty field should be represented by 0')
+    solver_parser.add_argument('-i', '--interactive', action='store_true', help='Enable interactive mode for solving the Sudoku')
     solver_parser.set_defaults(func=parse)
 
     args = parser.parse_args()
